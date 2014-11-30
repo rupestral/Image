@@ -6,25 +6,85 @@ package org.graphreactor.image;
 
 import static org.neo4j.kernel.impl.util.FileUtils.deleteRecursively;
 
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Vector;
+
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 
 import org.neo4j.graphdb.DynamicLabel;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.PropertyContainer;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
+import org.opencv.core.Core;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfByte;
+import org.opencv.core.MatOfRect;
+import org.opencv.core.Point;
+import org.opencv.core.Rect;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
+import org.opencv.highgui.Highgui;
+import org.opencv.highgui.VideoCapture;
+import org.opencv.imgproc.Imgproc;
+
+
+class FacePanel extends JPanel{  
+    private static final long serialVersionUID = 1L;  
+    private BufferedImage image;  
+    // Create a constructor method  
+    public FacePanel(){  
+         super();   
+    }  
+    /*  
+     * Converts/writes a Mat into a BufferedImage.  
+     *   
+     * @param matrix Mat of type CV_8UC3 or CV_8UC1  
+     * @return BufferedImage of type TYPE_3BYTE_BGR or TYPE_BYTE_GRAY  
+     */       
+    public boolean matToBufferedImage(Mat matrix) {  
+         MatOfByte mb=new MatOfByte();  
+         Highgui.imencode(".jpg", matrix, mb);  
+         try {  
+              this.image = ImageIO.read(new ByteArrayInputStream(mb.toArray()));  
+         } catch (IOException e) {  
+              e.printStackTrace();  
+              return false; // Error  
+         }  
+      return true; // Successful  
+    }  
+    public void paintComponent(Graphics g){  
+         super.paintComponent(g);   
+         if (this.image==null) return;         
+          g.drawImage(this.image,0,0,this.image.getWidth(),this.image.getHeight(), null);
+    }
+       
+}  
 
 public class Image {
 	
-	Integer dimX = 11;
-	Integer dimY = 11;
+	Integer dimX = 100;
+	Integer dimY = 100;
+	Integer threshold = 30;
 	
 	private static final String DB_PATH = "../DBs/Image";
 	// START SNIPPET: createReltype
@@ -37,20 +97,22 @@ public class Image {
 	// END SNIPPET: createReltype
 	
 	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws InterruptedException {
 		// TODO Auto-generated method stub
 		Image image = new Image();
 		image.run();
 	}
 
-	void run() {
+	void run() throws InterruptedException {
 		
 		clearDbPath(DB_PATH);
 		
 		// START SNIPPET: addData
 		GraphDatabaseService db = new GraphDatabaseFactory().newEmbeddedDatabase( DB_PATH );
 		
-		Label pixel = DynamicLabel.label("Pixel");
+		Label pixelLabel = DynamicLabel.label("Pixel");
+		Label frameLabel = DynamicLabel.label("Frame");
+		Label sequenceLabel = DynamicLabel.label("Sequence");
 		
 		// TODO to write RGB concatenated as strings? as property value for
 		// a time property named as a toString time Long on milliseconds
@@ -66,63 +128,157 @@ public class Image {
 		// TODO to write a "forecaster" query interleaved with memory writer
 		// which will check matches with existing memories and return "expected"
 		// next frames
-		
-		try ( Transaction tx = db.beginTx())
-		{   
-			Node[][] p = new Node[dimX][dimY];
-			
-			for (int i = 0; i < dimX; i++) {
-				for (int j = 0; j < dimY; j++) {
-					p[i][j] = db.createNode(pixel);
-					p[i][j].setProperty( "x", i );
-					p[i][j].setProperty( "y", j );
-					p[i][j].setProperty( "R", 0 );
-					p[i][j].setProperty( "G", 0 );
-					p[i][j].setProperty( "B", 0 );
-				}				
-			}
-			
-			System.out.println("Nodes created");
-			
-			// TODO to write only in the nodes (and all rels linked to that node - 
-			// maybe on a radius r) where RGB values are chaanged from previous frame
-			// TODO to experiment the image change threshold in such way that only a 
-			// fraction - %2 ? of pixels will be changed in order to give enough time
-			// to write all pixels changed in one frame
-			
-			Relationship xRel;
-			Relationship yRel;
-			Long nrRel = 0L;
-			Long tStartRel = Instant.now().toEpochMilli();
-			
-			for (int i = 0; i < dimX-1; i++) {
-				for (int j = 0; j < dimY; j++) {
-					xRel = p[i][j].createRelationshipTo( p[i+1][j], RelTypes.X);
-					long t = Instant.now().toEpochMilli();
-					nrRel++;
-					xRel.setProperty("t",t);
-					System.out.println(nrRel + " xRel time t = " + t);
-				}				
-			}
-			System.out.println("Relations X created");
-			for (int i = 0; i < dimX; i++) {
-				for (int j = 0; j < dimY-1; j++) {
-					yRel = p[i][j].createRelationshipTo(p[i][j+1], RelTypes.Y);
-					long t = Instant.now().toEpochMilli();
-					nrRel++;
-					yRel.setProperty("t",t);
-					System.out.println(nrRel + " yRel time t = " + t);
-				}				
-			}
-			Long tEndRel = Instant.now().toEpochMilli();
-			Long tRelDuration = tEndRel - tStartRel;
-			System.out.println("Relations Y created");
-			System.out.println(nrRel + " Relations created in " + tRelDuration + "ms with avg: " + tRelDuration/nrRel + "Rel/ms");
 
-			tx.success();
-		}        
-		// END SNIPPET: addData
-		
+	    // Load the native library.
+		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+		//make the JFrame
+	      JFrame frame = new JFrame("WebCam Capture");  
+	      frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);  
+	      
+	      FacePanel facePanel = new FacePanel();  
+	      frame.setSize(dimX,dimY); //set size 
+	      frame.setLocationRelativeTo(null); //set position to screen center
+	      frame.setBackground(Color.BLUE);
+	      frame.add(facePanel,BorderLayout.CENTER);       
+	      frame.setVisible(true);       
+	      
+	      //Open and Read from the video stream  
+	       Mat img=new Mat();  
+	       Mat img_gray=new Mat();  
+	       Mat img_prev=new Mat();  
+	       Mat img_prev_gray=new Mat();  
+	       Mat img_diff=new Mat();  
+	       Mat img_diff_gray=new Mat(); 
+	       Mat img_diff_channels=new Mat(); 
+	       Mat img_diff_color=new Mat(); 
+	       List<Mat> imgList = new ArrayList<Mat>();
+	       
+	       Integer changedPixels = 0;					// to host nr of pixels with color values changed
+	       Integer frameId = 0;
+	       Integer sequenceId = 0;
+	       
+	       Long timeMilli = 0L;
+	       
+	       VideoCapture webCam =new VideoCapture(2);   // set the webCam to use if more available
+	       
+	        if( webCam.isOpened())  
+	          {  
+	           Thread.sleep(100); /// This one-time delay allows the Webcam to initialize itself  
+	           
+		       webCam.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, dimX);
+		       webCam.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, dimY);
+		       
+		       webCam.read(img_prev);
+		       webCam.read(img);
+		       
+	           while( true )  
+	           {  
+	        	 webCam.read(img);  
+	             if( !img.empty() )  
+	              {   
+	            	 	Imgproc.cvtColor(img, img_gray, Imgproc.COLOR_RGB2GRAY);
+	            	 	Imgproc.cvtColor(img_prev, img_prev_gray, Imgproc.COLOR_RGB2GRAY);	            	 
+	            	 	Core.absdiff(img_gray, img_prev_gray, img_diff_gray);
+	            	 	Imgproc.threshold(img_diff_gray, img_diff, threshold, 1, Imgproc.THRESH_BINARY);
+	            	 	
+	            	 	changedPixels = Core.countNonZero(img_diff);
+	            	 	System.out.println("Changed pixels: " + changedPixels);
+	            	 	
+	            	 	imgList.add(0, img_diff);
+	            	 	imgList.add(1, img_diff);
+	            	 	imgList.add(2, img_diff);
+	            	 	
+	            	 	Core.merge(imgList, img_diff_channels);
+	            	 	imgList.clear();
+	            	 		            	 	
+	            	 	Core.multiply(img_diff_channels, img, img_diff_color);
+	            	 		        
+	                   webCam.read(img_prev);
+	                  //Display the image  
+	                   facePanel.matToBufferedImage(img_diff_color);  
+	                   facePanel.repaint();  
+	                   
+//	            	   double[] px = img_diff_color.get(0, 0); 
+//	                   System.out.println("B: "+px[0] + " G: " + px[1]+ " R: " + px[2] + " Frame|pixel time: " + tEndRel);	
+	                   
+	                   timeMilli = Instant.now().toEpochMilli();
+	                   
+	                   // IF changedEntities-Pixels (something changed) > 0 AND frameId == 0 (first frame in a new session)
+	                   // THEN Start first Sequence (Create Sequence node) AND Create Frame node AND Write full frame in DB	                  
+	                   if ( (changedPixels > 0) && (frameId == 0) ) {
+	                	   sequenceId++;
+	                	   frameId++;	   
+	                	   
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!	                	   
+// TODO: Split Write to DB in several parts with Node and Rels initial creation before starting the WebCam loop	                	   
+// AND then test performance when writing only percentages of properties in already created nodes and rels
+// DRAFT and test various CREATE and UPDATE/WRITE in Graph DB
+	                	   
+//START SNIPPET: add first Frame in Sequence to graph database
+	                	   try ( Transaction tx = db.beginTx())
+	                	   {   
+	                		   System.out.println(" - Write to DB first Frame in first Sequence - start time: " + timeMilli );
+	                		   
+	                		   Node sequenceNode = db.createNode(sequenceLabel);
+	                		   sequenceNode.setProperty("sequenceId", sequenceId);
+	                		   sequenceNode.setProperty("nrFrames", frameId);
+	                		   sequenceNode.setProperty("changedEntities", changedPixels);
+	                		   sequenceNode.setProperty("tStart", timeMilli);
+	                		   
+	                		   Node frameNode = db.createNode(frameLabel);
+	                		   frameNode.setProperty("frameId", frameId);
+	                		   frameNode.setProperty("changedPixels", changedPixels);
+	                		   frameNode.setProperty("t", timeMilli);
+	                		   
+	                		   Node[][] p = new Node[dimX][dimY];
+	                		   for (int i = 0; i < dimX; i++) {
+	                			   for (int j = 0; j < dimY; j++) {
+	                				   p[i][j] = db.createNode(pixelLabel);
+	                				   p[i][j].setProperty( "x", i );
+	                				   p[i][j].setProperty( "y", j );
+	                				   p[i][j].setProperty( "B", img.get(i, j)[0] );
+	                				   p[i][j].setProperty( "G", img.get(i, j)[1] );
+	                				   p[i][j].setProperty( "R", img.get(i, j)[2] );
+	                				   // maybe to calculate and write also gray level
+	                			   }
+	                		   }
+	                		   // System.out.println("Nodes created");	                		   
+	                		   // ? To add IN relations for pixelNodes IN frame Node IN sequenceNode
+	                		   
+	                		   Relationship xRel;
+	                		   Relationship yRel;
+
+	                		   for (int i = 0; i < dimX-1; i++) {
+	                			   for (int j = 0; j < dimY; j++) {
+	                				   xRel = p[i][j].createRelationshipTo( p[i+1][j], RelTypes.X);
+	                				   xRel.setProperty("f",frameId);
+	                			   }
+	                		   }
+
+	                		   for (int i = 0; i < dimX; i++) {
+	                			   for (int j = 0; j < dimY-1; j++) {
+	                				   yRel = p[i][j].createRelationshipTo(p[i][j+1], RelTypes.Y);
+	                				   yRel.setProperty("f",frameId);
+	                			   }
+	                		   }
+	                		   tx.success();
+	                		   Long tEnd = Instant.now().toEpochMilli();
+	                		   System.out.println(" - Wrote to DB first Frame in first Sequence - in ms: " +  (tEnd - timeMilli));
+
+	                	   }
+//END SNIPPET: add first Frame in Sequence to graph database	                	   
+	                	   	                	   
+	                   }
+	                   
+	              }  
+	              else  
+	              {   
+	                   System.out.println(" --(!) No captured frame from webcam !");   
+	                   break;   
+	              }  
+	             }  
+	            }
+	           webCam.release(); //release the webcam		
 	}
 	
 	private void clearDbPath(String path)

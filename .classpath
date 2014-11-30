@@ -24,5 +24,7 @@
 	<classpathentry kind="lib" path="/graph-reactor/lib/parboiled-scala_2.10-1.1.6.jar"/>
 	<classpathentry kind="lib" path="/graph-reactor/lib/scala-library-2.10.4.jar"/>
 	<classpathentry kind="lib" path="/graph-reactor/lib/server-api-2.1.4.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/OpenCV249"/>
+	<classpathentry kind="lib" path="/Users/stefan/opencv-249/build/bin/opencv-249.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
