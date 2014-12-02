@@ -32,6 +32,7 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Vector;
 
@@ -98,10 +99,15 @@ public class Image {
 
 	Integer dimX = 100;
 	Integer dimY = 100;
+
+	ArrayList<Mat> memoryFrames = new ArrayList(); 
+	
 	Node[][] p = new Node[dimX][dimY];
 	Relationship[][] xRel = new Relationship[dimX-1][dimY];
 	Relationship[][] yRel = new Relationship[dimX][dimY-1];
-	Relationship tRel;
+//	Memory[][] xRelMem = new Memory[dimX-1][dimY];
+//	Memory[][] yRelMem = new Memory[dimX][dimY-1];
+	Relationship tRel;	
 	
 	// Threshold on the gray level to filter the changed pixels
 	Integer threshold = 30;									
@@ -128,7 +134,7 @@ public class Image {
 	}
 
 	void run() throws InterruptedException {
-
+		
 //		System.out.println("Cleanup Graph DB at: " + DB_PATH);
 //		clearDbPath(DB_PATH);
 //		System.out.println("Graph DB clean.");
@@ -167,6 +173,9 @@ public class Image {
 
 		VideoCapture webCam =new VideoCapture(2);   // set the webCam to use if more available
 
+//		try ( Transaction tx = db.beginTx()) 
+//		{
+		
 		if( webCam.isOpened())  
 		{  
 			Thread.sleep(100); /// This one-time delay allows the Webcam to initialize itself  
@@ -215,10 +224,11 @@ public class Image {
 						sequenceId++;
 						frameId++;	   
 
+						memoryFrames.add(img);
 						//START SNIPPET: add first Frame in Sequence to graph database
 						try ( Transaction tx = db.beginTx())
 						{   
-							System.out.println(" - Write to DB first Frame in first Sequence - start time: " + timeMilli );
+							System.out.println(" - Write to DB/Mem first Frame in first Sequence - start time: " + timeMilli );
 
 							Node sequenceNode = db.createNode(sequenceLabel);
 							sequenceNode.setProperty("sequenceId", sequenceId);
@@ -231,31 +241,52 @@ public class Image {
 							frameNode.setProperty("changedPixels", changedPixels);
 							frameNode.setProperty("t", timeMilli);
 
-							for (int i = 0; i < dimX; i++) {
-								for (int j = 0; j < dimY; j++) {
-									p[i][j].setProperty( "B", img.get(i, j)[0] );
-									p[i][j].setProperty( "G", img.get(i, j)[1] );
-									p[i][j].setProperty( "R", img.get(i, j)[2] );
-									// maybe to calculate and write also gray level
-								}
-							}
+							// Write BGR values in Memory
+//							for (int i = 0; i < dimX; i++) {
+//								for (int j = 0; j < dimY; j++) {
+//									pMem[i][j].put( "B", img.get(i, j)[0] );
+//									pMem[i][j].put( "G", img.get(i, j)[1] );
+//									pMem[i][j].put( "R", img.get(i, j)[2] );
+//									// maybe to calculate and write also gray level
+//								}
+//							}
+//							for (int i = 0; i < dimX; i++) {
+//								for (int j = 0; j < dimY; j++) {
+//									p[i][j].setProperty( "B", img.get(i, j)[0] );
+//									p[i][j].setProperty( "G", img.get(i, j)[1] );
+//									p[i][j].setProperty( "R", img.get(i, j)[2] );
+//									// maybe to calculate and write also gray level
+//								}
+//							}
 							// System.out.println("Nodes created");	                		   
 							// ? To add IN relations for pixelNodes IN frame Node IN sequenceNode
 
-							for (int i = 0; i < dimX-1; i++) {
-								for (int j = 0; j < dimY; j++) {
-									xRel[i][j].setProperty("f",frameId);
-								}
-							}
-
-							for (int i = 0; i < dimX; i++) {
-								for (int j = 0; j < dimY-1; j++) {
-									yRel[i][j].setProperty("f",frameId);
-								}
-							}
+//							for (int i = 0; i < dimX-1; i++) {
+//								for (int j = 0; j < dimY; j++) {
+//									xRel[i][j].setProperty("f",frameId);
+//								}
+//							}
+//
+//							for (int i = 0; i < dimX; i++) {
+//								for (int j = 0; j < dimY-1; j++) {
+//									yRel[i][j].setProperty("f",frameId);
+//								}
+//							}
+							// Write rel properties in Memory
+//							for (int i = 0; i < dimX-1; i++) {
+//								for (int j = 0; j < dimY; j++) {
+//									xRelMem[i][j].setProperty("f",frameId);
+//								}
+//							}
+//
+//							for (int i = 0; i < dimX; i++) {
+//								for (int j = 0; j < dimY-1; j++) {
+//									yRelMem[i][j].setProperty("f",frameId);
+//								}
+//							}
 							tx.success();
 							Long tEnd = Instant.now().toEpochMilli();
-							System.out.println(" - Wrote to DB first Frame in first Sequence - in ms: " +  (tEnd - timeMilli));
+							System.out.println(" - Wrote to DB/Mem first Frame in first Sequence - in ms: " +  (tEnd - timeMilli));
 
 						}
 						//END SNIPPET: add first Frame in Sequence to graph database	                	   
@@ -270,7 +301,10 @@ public class Image {
 				}  
 			}  
 		}
-		webCam.release(); //release the webcam		
+		webCam.release(); //release the webcam	
+		
+//		tx.success();
+//		}
 	}
 	
 	private void clearDbPath(String path)
