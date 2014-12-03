@@ -105,8 +105,7 @@ public class Image {
 	Node[][] p = new Node[dimX][dimY];
 	Relationship[][] xRel = new Relationship[dimX-1][dimY];
 	Relationship[][] yRel = new Relationship[dimX][dimY-1];
-//	Memory[][] xRelMem = new Memory[dimX-1][dimY];
-//	Memory[][] yRelMem = new Memory[dimX][dimY-1];
+
 	Relationship tRel;	
 	
 	// Threshold on the gray level to filter the changed pixels
@@ -172,9 +171,6 @@ public class Image {
 		Long timeMilli = 0L;
 
 		VideoCapture webCam =new VideoCapture(2);   // set the webCam to use if more available
-
-//		try ( Transaction tx = db.beginTx()) 
-//		{
 		
 		if( webCam.isOpened())  
 		{  
@@ -223,7 +219,6 @@ public class Image {
 					if ( (changedPixels > 0) && (frameId == 0) ) {
 						sequenceId++;
 						frameId++;	   
-
 						memoryFrames.add(img);
 						//START SNIPPET: add first Frame in Sequence to graph database
 						try ( Transaction tx = db.beginTx())
@@ -241,26 +236,82 @@ public class Image {
 							frameNode.setProperty("changedPixels", changedPixels);
 							frameNode.setProperty("t", timeMilli);
 
-							// Write BGR values in Memory
-//							for (int i = 0; i < dimX; i++) {
-//								for (int j = 0; j < dimY; j++) {
-//									pMem[i][j].put( "B", img.get(i, j)[0] );
-//									pMem[i][j].put( "G", img.get(i, j)[1] );
-//									pMem[i][j].put( "R", img.get(i, j)[2] );
-//									// maybe to calculate and write also gray level
-//								}
-//							}
-//							for (int i = 0; i < dimX; i++) {
-//								for (int j = 0; j < dimY; j++) {
-//									p[i][j].setProperty( "B", img.get(i, j)[0] );
-//									p[i][j].setProperty( "G", img.get(i, j)[1] );
-//									p[i][j].setProperty( "R", img.get(i, j)[2] );
-//									// maybe to calculate and write also gray level
-//								}
-//							}
-							// System.out.println("Nodes created");	                		   
-							// ? To add IN relations for pixelNodes IN frame Node IN sequenceNode
+							tx.success();
+							Long tEnd = Instant.now().toEpochMilli();
+							System.out.println(" - Wrote to DB/Mem first Frame in first Sequence - in ms: " +  (tEnd - timeMilli));
 
+						}
+						//END SNIPPET: add first Frame in Sequence to graph database	                	   
+
+					}
+					if ( (changedPixels > 0) && (frameId != 0) ) {
+						frameId++;	
+						//START SNIPPET: add partial Frame in Sequence to graph database
+						try ( Transaction tx = db.beginTx())
+						{   
+							System.out.println(" - Write to DB/Mem partial Frame in first Sequence - start time: " + timeMilli );
+
+							Node sequenceNode = db.createNode(sequenceLabel);
+							sequenceNode.setProperty("sequenceId", sequenceId);
+							sequenceNode.setProperty("nrFrames", frameId);
+							sequenceNode.setProperty("changedEntities", changedPixels);
+							sequenceNode.setProperty("tStart", timeMilli);
+
+							Node frameNode = db.createNode(frameLabel);
+							frameNode.setProperty("frameId", frameId);
+							frameNode.setProperty("changedPixels", changedPixels);
+							frameNode.setProperty("t", timeMilli);
+
+							for (int i = 0; i < dimX; i++) {
+								for (int j = 0; j < dimY; j++) {
+									if (img_diff.get(i, j)[0] > 0) {
+										p[i][j].setProperty( "B", img_diff_color.get(i, j)[0] );
+										p[i][j].setProperty( "G", img_diff_color.get(i, j)[1] );
+										p[i][j].setProperty( "R", img_diff_color.get(i, j)[2] );
+										// Write X relations to the left and write of the pixel
+										if (i > 0 ) 
+											xRel[i-1][j].setProperty("f",frameId);	// left rel
+										if (i < ( dimX - 1) )
+											xRel[i][j].setProperty("f",frameId);	// right rel
+											
+										// Write Y relations to the up and down of the pixel
+										if (j > 0 ) 
+											yRel[i][j-1].setProperty("f",frameId);	// up rel
+										if (j < ( dimY - 1) )
+											yRel[i][j].setProperty("f",frameId);	// down rel
+										
+											
+									}
+								}
+							}                		   
+
+							tx.success();
+							Long tEnd = Instant.now().toEpochMilli();
+							System.out.println(" - Wrote to DB/Mem partial Frame in first Sequence - in ms: " +  (tEnd - timeMilli));
+
+						}
+						//END SNIPPET: add partial Frame in Sequence to graph database	                	   
+
+					}
+					// IF no change in image then write the first frame in the db
+					if ( (changedPixels == 0) && (!memoryFrames.isEmpty()) ) {
+						frameId = 0;
+						//START SNIPPET: Late add first Frame in Sequence to graph database
+						try ( Transaction tx = db.beginTx())
+						{   
+							System.out.println(" - Late Write to DB first Frame in Sequence - start time: " + timeMilli );
+
+							Mat img_mem = memoryFrames.remove(0);
+							
+							for (int i = 0; i < dimX; i++) {
+								for (int j = 0; j < dimY; j++) {
+									p[i][j].setProperty( "B", img_mem.get(i, j)[0] );
+									p[i][j].setProperty( "G", img_mem.get(i, j)[1] );
+									p[i][j].setProperty( "R", img_mem.get(i, j)[2] );
+									// maybe to calculate and write also gray level
+								}
+							}                		   
+// Should I write the relations for full frames?
 //							for (int i = 0; i < dimX-1; i++) {
 //								for (int j = 0; j < dimY; j++) {
 //									xRel[i][j].setProperty("f",frameId);
@@ -272,25 +323,13 @@ public class Image {
 //									yRel[i][j].setProperty("f",frameId);
 //								}
 //							}
-							// Write rel properties in Memory
-//							for (int i = 0; i < dimX-1; i++) {
-//								for (int j = 0; j < dimY; j++) {
-//									xRelMem[i][j].setProperty("f",frameId);
-//								}
-//							}
-//
-//							for (int i = 0; i < dimX; i++) {
-//								for (int j = 0; j < dimY-1; j++) {
-//									yRelMem[i][j].setProperty("f",frameId);
-//								}
-//							}
 							tx.success();
 							Long tEnd = Instant.now().toEpochMilli();
-							System.out.println(" - Wrote to DB/Mem first Frame in first Sequence - in ms: " +  (tEnd - timeMilli));
+							System.out.println(" - Wrote to DB first Frame in Sequence - in ms: " +  (tEnd - timeMilli));
 
 						}
-						//END SNIPPET: add first Frame in Sequence to graph database	                	   
-
+						//END SNIPPET: late add first Frame in Sequence to graph database	                	   
+						memoryFrames.add(img); // add current frame to memory
 					}
 
 				}  
@@ -302,9 +341,6 @@ public class Image {
 			}  
 		}
 		webCam.release(); //release the webcam	
-		
-//		tx.success();
-//		}
 	}
 	
 	private void clearDbPath(String path)
