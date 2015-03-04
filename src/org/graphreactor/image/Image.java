@@ -62,7 +62,6 @@ import org.opencv.highgui.Highgui;
 import org.opencv.highgui.VideoCapture;
 import org.opencv.imgproc.Imgproc;
 
-
 class FacePanel extends JPanel{  
     private static final long serialVersionUID = 1L;  
     private BufferedImage image;  
@@ -85,7 +84,7 @@ class FacePanel extends JPanel{
               e.printStackTrace();  
               return false; // Error  
          }  
-      return true; // Successful  
+      return true; // Sucessful  
     }  
     public void paintComponent(Graphics g){  
          super.paintComponent(g);   
@@ -97,8 +96,8 @@ class FacePanel extends JPanel{
 
 public class Image {
 
-	Integer dimX = 100;
-	Integer dimY = 100;
+	Integer dimX = 9;
+	Integer dimY = 9;
 
 	ArrayList<Mat> memoryFrames = new ArrayList(); 
 	
@@ -127,19 +126,19 @@ public class Image {
 	}
 	
 	public static void main(String[] args) throws InterruptedException {
-		// TODO Auto-generated method stub
+
+		System.out.println("Cleanup Graph DB at: " + DB_PATH);
+		clearDbPath(DB_PATH);
+		System.out.println("Graph DB clean.");		
+		
 		Image image = new Image();
 		image.run();
 	}
 
 	void run() throws InterruptedException {
-		
-//		System.out.println("Cleanup Graph DB at: " + DB_PATH);
-//		clearDbPath(DB_PATH);
-//		System.out.println("Graph DB clean.");
-		
+			
 		initializeGraphNet();
-
+		
 		// Load the native library.
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 		//make the JFrame
@@ -170,11 +169,11 @@ public class Image {
 
 		Long timeMilli = 0L;
 
-		VideoCapture webCam =new VideoCapture(2);   // set the webCam to use if more available
+		VideoCapture webCam =new VideoCapture(1);   // set the webCam to use if more available
 		
 		if( webCam.isOpened())  
 		{  
-			Thread.sleep(100); /// This one-time delay allows the Webcam to initialize itself  
+			Thread.sleep(300); /// This one-time delay allows the Webcam to initialize itself  
 
 			webCam.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, dimX);
 			webCam.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, dimY);
@@ -182,7 +181,7 @@ public class Image {
 			webCam.read(img_prev);
 			webCam.read(img);
 
-			while( true )  
+			while( sequenceId < 2 )  // or to keep it in a loop just have while (true)
 			{  
 				webCam.read(img);  
 				if( !img.empty() )  
@@ -268,6 +267,7 @@ public class Image {
 										p[i][j].setProperty( "B", img_diff_color.get(i, j)[0] );
 										p[i][j].setProperty( "G", img_diff_color.get(i, j)[1] );
 										p[i][j].setProperty( "R", img_diff_color.get(i, j)[2] );
+										p[i][j].setProperty( "grey", img_diff.get(i, j)[0] );
 										// Write X relations to the left and write of the pixel
 										if (i > 0 ) 
 											xRel[i-1][j].setProperty("f",frameId);	// left rel
@@ -278,9 +278,7 @@ public class Image {
 										if (j > 0 ) 
 											yRel[i][j-1].setProperty("f",frameId);	// up rel
 										if (j < ( dimY - 1) )
-											yRel[i][j].setProperty("f",frameId);	// down rel
-										
-											
+											yRel[i][j].setProperty("f",frameId);	// down rel	
 									}
 								}
 							}                		   
@@ -341,9 +339,10 @@ public class Image {
 			}  
 		}
 		webCam.release(); //release the webcam	
+		db.shutdown();
 	}
 	
-	private void clearDbPath(String path)
+	public static void clearDbPath(String path)
 	{
 		try
 		{

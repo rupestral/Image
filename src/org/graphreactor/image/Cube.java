@@ -18,9 +18,9 @@ import org.neo4j.graphdb.factory.GraphDatabaseFactory;
 
 public class Cube {
 	
-	Integer dimX = 3;
+	Integer dimX = 4;
 	Integer dimY = 3;
-	Integer dimZ = 3;
+	Integer dimZ = 2;
 	
 	private static final String DB_PATH = "../DBs/Cube";
 	// START SNIPPET: createReltype
@@ -100,7 +100,7 @@ public class Cube {
 			tx.success();
 		}        
 		// END SNIPPET: addData
-		
+	db.shutdown();	
 	}
 	
 	private void clearDbPath(String path)
