@@ -115,6 +115,7 @@ class Base {
 		T
 	}
 	
+	// Base is the equivalent of image initialization in image.java
 	Base(GraphDatabaseService db, Integer level, Integer edgeX, Integer edgeY) {
 		this.level = level;
 		dimX = edgeX;
@@ -167,9 +168,12 @@ public class Pyramid {
 	// dimX and dimY should be equal and related to dimZ by some constraint function - to start with dimX = dimY = 3 at the power of dimZ 
 	// ToDo - to investigate why it works only for dimX == dimY - and throws a null pointer exception if dimX != dimY
 	public static Integer B3 = 3; 		// pyramid rule based on a network of 3 x 3 pixels and one on top
-	public static Integer dimZ = 3;
-	public Integer dimX = (int) Math.pow(B3, dimZ);	
-	public Integer dimY = (int) Math.pow(B3, dimZ);
+	public static Integer dimZ = 3;		// nr of z levels = nr of levels in the pyramid 0 -- the top level; 1 -> 2 levels; z=2 -> 3 levels
+	public Integer dimX = (int) Math.pow(B3, dimZ);	// dimensions of the x, y number of pixels for the largest image/ base in the pyramid of images 
+	public Integer dimY = (int) Math.pow(B3, dimZ);	// dimX = dimY
+	
+	// Initialize Pyramid Graph bases - the equivalent image bases - each base is a planar graph network like the one in image.java
+	public static ArrayList<Base> g = new ArrayList<>();
 	
 	private static final String DB_PATH = "../DBs/Pyramid";	
 	static GraphDatabaseService db = new GraphDatabaseFactory().newEmbeddedDatabase( DB_PATH );
@@ -180,7 +184,6 @@ public class Pyramid {
 	
 	Relationship tRel;
 	static Relationship zRel;
-	
 	
 	ArrayList<Mat> memoryFrames = new ArrayList(); 
 	
@@ -196,8 +199,8 @@ public class Pyramid {
 		
 		Pyramid pyramid = new Pyramid();
 		
-		// Initialize Pyramid Graph bases
-		ArrayList<Base> g = new ArrayList<>();
+		// Initialize Pyramid Graph bases - the equivalent image bases - each base is a planar graph network like the one in image.java
+		// ArrayList<Base> g = new ArrayList<>();
 		for (int z = 0; z <= dimZ; z++) {
 			g.add(new Base(db,z, (int)Math.pow(B3, z), (int)Math.pow(B3, z)));
 		}
@@ -223,216 +226,236 @@ public class Pyramid {
 		}
 
 		
-		//pyramid.run();
+		pyramid.run();
 		db.shutdown();
 	}
 
 	// Run method
-//	void run() throws InterruptedException {
-//			
-//		// Load the native library.
-//		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-//		//make the JFrame
-//		JFrame frame = new JFrame("WebCam Capture");  
-//		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);  
-//
-//		FacePanel facePanel = new FacePanel();  
-//		frame.setSize(dimX,dimY); //set size 
-//		frame.setLocationRelativeTo(null); //set position to screen center
-//		frame.setBackground(Color.BLUE);
-//		frame.add(facePanel,BorderLayout.CENTER);       
-//		frame.setVisible(true);       
-//
-//		//Open and Read from the video stream  
-//		Mat img=new Mat();  
-//		Mat img_gray=new Mat();  
-//		Mat img_prev=new Mat();  
-//		Mat img_prev_gray=new Mat();  
-//		Mat img_diff=new Mat();  
-//		Mat img_diff_gray=new Mat(); 
-//		Mat img_diff_channels=new Mat(); 
-//		Mat img_diff_color=new Mat(); 
-//		List<Mat> imgList = new ArrayList<Mat>();
-//
-//		Integer changedPixels = 0;					// to host nr of pixels with color values changed
-//		Integer frameId = 0;
-//		Integer sequenceId = 0;
-//
-//		Long timeMilli = 0L;
-//
-//		VideoCapture webCam =new VideoCapture(1);   // set the webCam to use if more available
-//		
-//		if( webCam.isOpened())  
-//		{  
-//			Thread.sleep(300); /// This one-time delay allows the Webcam to initialize itself  
-//
-//			webCam.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, dimX);
-//			webCam.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, dimY);
-//
-//			webCam.read(img_prev);
-//			webCam.read(img);
-//
-//			while( sequenceId < 2 )  // or to keep it in a loop just have while (true)
-//			{  
-//				webCam.read(img);  
-//				if( !img.empty() )  
-//				{   
-//					Imgproc.cvtColor(img, img_gray, Imgproc.COLOR_RGB2GRAY);
-//					Imgproc.cvtColor(img_prev, img_prev_gray, Imgproc.COLOR_RGB2GRAY);	            	 
-//					Core.absdiff(img_gray, img_prev_gray, img_diff_gray);
-//					Imgproc.threshold(img_diff_gray, img_diff, threshold, 1, Imgproc.THRESH_BINARY);
-//
-//					changedPixels = Core.countNonZero(img_diff);
-//					System.out.println("Changed pixels: " + changedPixels);
-//
-//					imgList.add(0, img_diff);
-//					imgList.add(1, img_diff);
-//					imgList.add(2, img_diff);
-//
-//					Core.merge(imgList, img_diff_channels);
-//					imgList.clear();
-//
-//					Core.multiply(img_diff_channels, img, img_diff_color);
-//
-//					webCam.read(img_prev);
-//					//Display the image  
-//					facePanel.matToBufferedImage(img_diff_color);  
-//					facePanel.repaint();  
-//
-//					//	            	   double[] px = img_diff_color.get(0, 0); 
-//					//	                   System.out.println("B: "+px[0] + " G: " + px[1]+ " R: " + px[2] + " Frame|pixel time: " + tEndRel);	
-//
-//					timeMilli = Instant.now().toEpochMilli();
-//
-//					// IF changedEntities-Pixels (something changed) > 0 AND frameId == 0 (first frame in a new session)
-//					// THEN Start first Sequence (Create Sequence node) AND Create Frame node AND Write full frame in DB	                  
-//					if ( (changedPixels > 0) && (frameId == 0) ) {
-//						sequenceId++;
-//						frameId++;	   
-//						memoryFrames.add(img);
-//						//START SNIPPET: add first Frame in Sequence to graph database
-//						try ( Transaction tx = db.beginTx())
-//						{   
-//							System.out.println(" - Write to DB/Mem first Frame in first Sequence - start time: " + timeMilli );
-//
-//							Node sequenceNode = db.createNode(sequenceLabel);
-//							sequenceNode.setProperty("sequenceId", sequenceId);
-//							sequenceNode.setProperty("nrFrames", frameId);
-//							sequenceNode.setProperty("changedEntities", changedPixels);
-//							sequenceNode.setProperty("tStart", timeMilli);
-//
-//							Node frameNode = db.createNode(frameLabel);
-//							frameNode.setProperty("frameId", frameId);
-//							frameNode.setProperty("changedPixels", changedPixels);
-//							frameNode.setProperty("t", timeMilli);
-//
-//							tx.success();
-//							Long tEnd = Instant.now().toEpochMilli();
-//							System.out.println(" - Wrote to DB/Mem first Frame in first Sequence - in ms: " +  (tEnd - timeMilli));
-//
-//						}
-//						//END SNIPPET: add first Frame in Sequence to graph database	                	   
-//
-//					}
-//					if ( (changedPixels > 0) && (frameId != 0) ) {
-//						frameId++;	
-//						//START SNIPPET: add partial Frame in Sequence to graph database
-//						try ( Transaction tx = db.beginTx())
-//						{   
-//							System.out.println(" - Write to DB/Mem partial Frame in first Sequence - start time: " + timeMilli );
-//
-//							Node sequenceNode = db.createNode(sequenceLabel);
-//							sequenceNode.setProperty("sequenceId", sequenceId);
-//							sequenceNode.setProperty("nrFrames", frameId);
-//							sequenceNode.setProperty("changedEntities", changedPixels);
-//							sequenceNode.setProperty("tStart", timeMilli);
-//
-//							Node frameNode = db.createNode(frameLabel);
-//							frameNode.setProperty("frameId", frameId);
-//							frameNode.setProperty("changedPixels", changedPixels);
-//							frameNode.setProperty("t", timeMilli);
+	void run() throws InterruptedException {
+			
+		// Load the native library.
+		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+		//make the JFrame
+		JFrame frame = new JFrame("WebCam Capture");  
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);  
+
+		FacePanel facePanel = new FacePanel();  
+		frame.setSize(dimX,dimY); //set size 
+		frame.setLocationRelativeTo(null); //set position to screen center
+		frame.setBackground(Color.BLUE);
+		frame.add(facePanel,BorderLayout.CENTER);       
+		frame.setVisible(true);       
+
+		//Open and Read from the video stream  
+		Mat img=new Mat();  
+		Mat img_gray=new Mat();  
+		Mat img_prev=new Mat();  
+		Mat img_prev_gray=new Mat();  
+		Mat img_diff=new Mat();  
+		Mat img_diff_gray=new Mat(); 
+		Mat img_diff_channels=new Mat(); 
+		Mat img_diff_color=new Mat(); 
+		List<Mat> img_pyr_color=new ArrayList<Mat>();	// List of Mats to hold pyramid images
+		for (int k = dimZ; k <= 0; k--) {				// Initialize pyramid image mats
+			img_pyr_color.add(new Mat());
+		}
+		
+		List<Mat> imgList = new ArrayList<Mat>();
+
+		Integer changedPixels = 0;					// to host nr of pixels with color values changed
+		Integer frameId = 0;
+		Integer sequenceId = 0;
+
+		Long timeMilli = 0L;
+
+		VideoCapture webCam =new VideoCapture(1);   // set the webCam to use if more available
+		
+		if( webCam.isOpened())  
+		{  
+			Thread.sleep(300); /// This one-time delay allows the Webcam to initialize itself  
+
+			webCam.set(Highgui.CV_CAP_PROP_FRAME_WIDTH, dimX);
+			webCam.set(Highgui.CV_CAP_PROP_FRAME_HEIGHT, dimY);
+
+			webCam.read(img_prev);
+			webCam.read(img);
+
+			while( sequenceId < 2 )  // or to keep it in a loop just have while (true)
+			{  
+				webCam.read(img);  
+				if( !img.empty() )  
+				{   
+					Imgproc.cvtColor(img, img_gray, Imgproc.COLOR_RGB2GRAY);
+					Imgproc.cvtColor(img_prev, img_prev_gray, Imgproc.COLOR_RGB2GRAY);	            	 
+					Core.absdiff(img_gray, img_prev_gray, img_diff_gray);
+					Imgproc.threshold(img_diff_gray, img_diff, threshold, 1, Imgproc.THRESH_BINARY);
+
+					changedPixels = Core.countNonZero(img_diff);
+					System.out.println("Changed pixels: " + changedPixels);
+
+					imgList.add(0, img_diff);
+					imgList.add(1, img_diff);
+					imgList.add(2, img_diff);
+
+					Core.merge(imgList, img_diff_channels);
+					imgList.clear();
+
+					Core.multiply(img_diff_channels, img, img_diff_color);
+
+					// Compute pyramid levels from bottom image to top
+					// Initialize first level of the pyramid from the base level original image
+					Imgproc.pyrDown(img_diff_color, img_pyr_color.get(dimZ) , new Size((double)img_diff_color.cols()/3, (double)img_diff_color.rows()/3));
+					for (int k = dimZ ; k > 0; k--) {						
+						Imgproc.pyrDown(img_pyr_color.get(k), img_pyr_color.get(k-1) , new Size((double)img_diff_color.cols()/3, (double)img_diff_color.rows()/3));
+						}
+					
+					webCam.read(img_prev);
+					//Display the image  
+					facePanel.matToBufferedImage(img_diff_color);  
+					facePanel.repaint();  
+
+					//	            	   double[] px = img_diff_color.get(0, 0); 
+					//	                   System.out.println("B: "+px[0] + " G: " + px[1]+ " R: " + px[2] + " Frame|pixel time: " + tEndRel);	
+
+					timeMilli = Instant.now().toEpochMilli();
+
+					// IF changedEntities-Pixels (something changed) > 0 AND frameId == 0 (first frame in a new session)
+					// THEN Start first Sequence (Create Sequence node) AND Create Frame node AND Write full frame in DB	                  
+					if ( (changedPixels > 0) && (frameId == 0) ) {
+						sequenceId++;
+						frameId++;	   
+						memoryFrames.add(img);
+						//START SNIPPET: add first Frame in Sequence to graph database
+						try ( Transaction tx = db.beginTx())
+						{   
+							System.out.println(" - Write to DB/Mem first Frame in first Sequence - start time: " + timeMilli );
+
+							Node sequenceNode = db.createNode(sequenceLabel);
+							sequenceNode.setProperty("sequenceId", sequenceId);
+							sequenceNode.setProperty("nrFrames", frameId);
+							sequenceNode.setProperty("changedEntities", changedPixels);
+							sequenceNode.setProperty("tStart", timeMilli);
+
+							Node frameNode = db.createNode(frameLabel);
+							frameNode.setProperty("frameId", frameId);
+							frameNode.setProperty("changedPixels", changedPixels);
+							frameNode.setProperty("t", timeMilli);
+
+							tx.success();
+							Long tEnd = Instant.now().toEpochMilli();
+							System.out.println(" - Wrote to DB/Mem first Frame in first Sequence - in ms: " +  (tEnd - timeMilli));
+
+						}
+						//END SNIPPET: add first Frame in Sequence to graph database	                	   
+
+					}
+					if ( (changedPixels > 0) && (frameId != 0) ) {
+						frameId++;	
+						//START SNIPPET: add partial Frame in Sequence to graph database
+						try ( Transaction tx = db.beginTx())
+						{   
+							System.out.println(" - Write to DB/Mem partial Frame in first Sequence - start time: " + timeMilli );
+
+							Node sequenceNode = db.createNode(sequenceLabel);
+							sequenceNode.setProperty("sequenceId", sequenceId);
+							sequenceNode.setProperty("nrFrames", frameId);
+							sequenceNode.setProperty("changedEntities", changedPixels);
+							sequenceNode.setProperty("tStart", timeMilli);
+
+							Node frameNode = db.createNode(frameLabel);
+							frameNode.setProperty("frameId", frameId);
+							frameNode.setProperty("changedPixels", changedPixels);
+							frameNode.setProperty("t", timeMilli);
+
+							// ToDo - Compute B,G,R, grey for all pixels/nodes in the pyramid - 
+							// except the original base image which will capture first the original image (diff) values
+							// Draft: 
+							// for (int k = dimZ; k >= 0; k--)   // start from the base image 
+							for (int k = dimZ; k >= 0; k--) {
+								for (int i = 0; i < (dimX / Math.pow(B3,(dimZ - k))); i++) {			// original up to dimX but for pyramid must be up to edge dimension of the level in pyramid 
+									for (int j = 0; j < (dimY / Math.pow(B3, (dimY - k))); j++) {
+										if (img_diff.get(i, j)[0] > 0) {	// ToDo - change img_diff (grey?) into a grey image for pyramid level k
+											g.get(k).p[i][j].setProperty( "B", img_pyr_color.get(k).get(i, j)[0] );
+											g.get(k).p[i][j].setProperty( "G", img_pyr_color.get(k).get(i, j)[1] );
+											g.get(k).p[i][j].setProperty( "R", img_pyr_color.get(k).get(i, j)[2] );
+											// g.get(dimZ).p[i][j].setProperty( "grey", img_diff.get(i, j)[0] );
+											g.get(k).p[i][j].setProperty( "f_" + frameId, frameId );
+											// Write X relations to the left and write of the pixel
+	//										if (i > 0 ) 
+	//											xRel[i-1][j].setProperty("f_" + frameId,frameId);	// left rel
+	//										if (i < ( dimX - 1) )
+	//											xRel[i][j].setProperty("f_" + frameId,frameId);	// right rel
+	//											
+	//										// Write Y relations to the up and down of the pixel
+	//										if (j > 0 ) 
+	//											yRel[i][j-1].setProperty("f_" + frameId,frameId);	// up rel
+	//										if (j < ( dimY - 1) )
+	//											yRel[i][j].setProperty("f_" + frameId,frameId);	// down rel	
+										}
+									}
+								} 
+							}
+
+							tx.success();
+							Long tEnd = Instant.now().toEpochMilli();
+							System.out.println(" - Wrote to DB/Mem partial Frame in first Sequence - in ms: " +  (tEnd - timeMilli));
+
+						}
+						//END SNIPPET: add partial Frame in Sequence to graph database	                	   
+
+					}
+					// IF no change in image then write the first frame in the db
+					if ( (changedPixels == 0) && (!memoryFrames.isEmpty()) ) {
+						frameId = 0;
+						//START SNIPPET: Late add first Frame in Sequence to graph database
+						try ( Transaction tx = db.beginTx())
+						{   
+							System.out.println(" - Late Write to DB first Frame in Sequence - start time: " + timeMilli );
+
+							Mat img_mem = memoryFrames.remove(0);
+							
+							for (int i = 0; i < dimX; i++) {
+								for (int j = 0; j < dimY; j++) {
+									g.get(dimZ).p[i][j].setProperty( "B", img_mem.get(i, j)[0] );
+									g.get(dimZ).p[i][j].setProperty( "G", img_mem.get(i, j)[1] );
+									g.get(dimZ).p[i][j].setProperty( "R", img_mem.get(i, j)[2] );
+									// maybe to calculate and write also gray level
+								}
+							}                		   
+// Should I write the relations for full frames?
+//							for (int i = 0; i < dimX-1; i++) {
+//								for (int j = 0; j < dimY; j++) {
+//									xRel[i][j].setProperty("f",frameId);
+//								}
+//							}
 //
 //							for (int i = 0; i < dimX; i++) {
-//								for (int j = 0; j < dimY; j++) {
-//									if (img_diff.get(i, j)[0] > 0) {
-//										p[i][j].setProperty( "B", img_diff_color.get(i, j)[0] );
-//										p[i][j].setProperty( "G", img_diff_color.get(i, j)[1] );
-//										p[i][j].setProperty( "R", img_diff_color.get(i, j)[2] );
-//										p[i][j].setProperty( "grey", img_diff.get(i, j)[0] );
-//										p[i][j].setProperty( "f_" + frameId, frameId );
-//										// Write X relations to the left and write of the pixel
-//										if (i > 0 ) 
-//											xRel[i-1][j].setProperty("f_" + frameId,frameId);	// left rel
-//										if (i < ( dimX - 1) )
-//											xRel[i][j].setProperty("f_" + frameId,frameId);	// right rel
-//											
-//										// Write Y relations to the up and down of the pixel
-//										if (j > 0 ) 
-//											yRel[i][j-1].setProperty("f_" + frameId,frameId);	// up rel
-//										if (j < ( dimY - 1) )
-//											yRel[i][j].setProperty("f_" + frameId,frameId);	// down rel	
-//									}
+//								for (int j = 0; j < dimY-1; j++) {
+//									yRel[i][j].setProperty("f",frameId);
 //								}
-//							}                		   
-//
-//							tx.success();
-//							Long tEnd = Instant.now().toEpochMilli();
-//							System.out.println(" - Wrote to DB/Mem partial Frame in first Sequence - in ms: " +  (tEnd - timeMilli));
-//
-//						}
-//						//END SNIPPET: add partial Frame in Sequence to graph database	                	   
-//
-//					}
-//					// IF no change in image then write the first frame in the db
-//					if ( (changedPixels == 0) && (!memoryFrames.isEmpty()) ) {
-//						frameId = 0;
-//						//START SNIPPET: Late add first Frame in Sequence to graph database
-//						try ( Transaction tx = db.beginTx())
-//						{   
-//							System.out.println(" - Late Write to DB first Frame in Sequence - start time: " + timeMilli );
-//
-//							Mat img_mem = memoryFrames.remove(0);
-//							
-//							for (int i = 0; i < dimX; i++) {
-//								for (int j = 0; j < dimY; j++) {
-//									p[i][j].setProperty( "B", img_mem.get(i, j)[0] );
-//									p[i][j].setProperty( "G", img_mem.get(i, j)[1] );
-//									p[i][j].setProperty( "R", img_mem.get(i, j)[2] );
-//									// maybe to calculate and write also gray level
-//								}
-//							}                		   
-//// Should I write the relations for full frames?
-////							for (int i = 0; i < dimX-1; i++) {
-////								for (int j = 0; j < dimY; j++) {
-////									xRel[i][j].setProperty("f",frameId);
-////								}
-////							}
-////
-////							for (int i = 0; i < dimX; i++) {
-////								for (int j = 0; j < dimY-1; j++) {
-////									yRel[i][j].setProperty("f",frameId);
-////								}
-////							}
-//							tx.success();
-//							Long tEnd = Instant.now().toEpochMilli();
-//							System.out.println(" - Wrote to DB first Frame in Sequence - in ms: " +  (tEnd - timeMilli));
-//
-//						}
-//						//END SNIPPET: late add first Frame in Sequence to graph database	                	   
-//						memoryFrames.add(img); // add current frame to memory
-//					}
-//
-//				}  
-//				else  
-//				{   
-//					System.out.println(" --(!) No captured frame from webcam !");   
-//					break;   
-//				}  
-//			}  
-//		}
-//		webCam.release(); //release the webcam	
-//		db.shutdown();
-//	}
+//							}
+							tx.success();
+							Long tEnd = Instant.now().toEpochMilli();
+							System.out.println(" - Wrote to DB first Frame in Sequence - in ms: " +  (tEnd - timeMilli));
+
+						}
+						//END SNIPPET: late add first Frame in Sequence to graph database	                	   
+						memoryFrames.add(img); // add current frame to memory
+					}
+
+				}  
+				else  
+				{   
+					System.out.println(" --(!) No captured frame from webcam !");   
+					break;   
+				} 
+				
+				img_pyr_color.clear();
+			}  
+		}
+		webCam.release(); //release the webcam	
+		db.shutdown();
+	}
 	
 	public static void clearDbPath(String path)
 	{
