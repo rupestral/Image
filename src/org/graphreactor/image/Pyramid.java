@@ -177,7 +177,7 @@ public class Pyramid {
 	public static ArrayList<Base> g = new ArrayList<>();
 	
 	private static final String DB_PATH = "../DBs/Pyramid/";	
-	private static final long startTime = Instant.now().toEpochMilli();
+	private static final long startTime = Instant.now().toEpochMilli();				// same dir name = startTime will be used for both pyramid jpgs in ../data/pyramid and for neo4j DBs in ../DBs/Pyramid 
 	static GraphDatabaseService db = new GraphDatabaseFactory().newEmbeddedDatabase( DB_PATH + startTime);
 	
 	Label pixelLabel = DynamicLabel.label("Pixel");
@@ -276,7 +276,7 @@ public class Pyramid {
 		Integer sequenceId = 0;
 
 		Long timeMilli = 0L;
-		String dirPyrsString = "pyrs/" + startTime; 						
+		String dirPyrsString = "../data/pyramid/" + startTime; 						
 		
 		File dir = new File (dirPyrsString); 	// time of starting recording which will be used as a directory in pyrs files directory 
 		dir.mkdirs();
