@@ -137,6 +137,7 @@ class Base {
 					p[i][j] = db.createNode(pixelLabel);
 					p[i][j].setProperty( "x", i );
 					p[i][j].setProperty( "y", j );
+					p[i][j].setProperty( "l", level );
 				}
 			}
 			System.out.println("Nodes created: " + dimX*dimY);	                		   
@@ -165,12 +166,12 @@ class Base {
 }
 
 public class Pyramid {
-	// dimX and dimY should be equal and related to dimZ by some constraint function - to start with dimX = dimY = 3 at the power of dimZ 
+	// dimX and dimY should be equal and related to dimZ by some constraint function - to start with dimX = dimY = 2 at the power of dimZ 
 	// ToDo - to investigate why it works only for dimX == dimY - and throws a null pointer exception if dimX != dimY
-	public static Integer B3 = 3; 		// pyramid rule based on a network of 3 x 3 pixels and one on top
+	public static Integer B2 = 2; 		// pyramid rule based on a network of 2 x 2 pixels and one on top
 	public static Integer dimZ = 3;		// nr of z levels = nr of levels in the pyramid 0 -- the top level; 1 -> 2 levels; z=2 -> 3 levels
-	public Integer dimX = (int) Math.pow(B3, dimZ);	// dimensions of the x, y number of pixels for the largest image/ base in the pyramid of images 
-	public Integer dimY = (int) Math.pow(B3, dimZ);	// dimX = dimY
+	public Integer dimX = (int) Math.pow(B2, dimZ);	// dimensions of the x, y number of pixels for the largest image/ base in the pyramid of images 
+	public Integer dimY = (int) Math.pow(B2, dimZ);	// dimX = dimY
 	
 	// Initialize Pyramid Graph bases - the equivalent image bases - each base is a planar graph network like the one in image.java
 	public static ArrayList<Base> g = new ArrayList<>();
@@ -202,7 +203,7 @@ public class Pyramid {
 		// Initialize Pyramid Graph bases - the equivalent image bases - each base is a planar graph network like the one in image.java
 		// ArrayList<Base> g = new ArrayList<>();
 		for (int z = 0; z <= dimZ; z++) {
-			g.add(new Base(db,z, (int)Math.pow(B3, z), (int)Math.pow(B3, z)));
+			g.add(new Base(db,z, (int)Math.pow(B2, z), (int)Math.pow(B2, z)));
 		}
 		
 		// Initialize Pyramid Graph Z relations
@@ -210,11 +211,11 @@ public class Pyramid {
 		{ 
 			Integer zRelCount = 0;
 			for (int k = 0; k < dimZ; k++) {								// iterate through the k levels of the pyramid starting from top k = 0
-				for (int i = 0; i < (int)Math.pow(B3, k); i++) {			// iterate through the top base x dimension of size B3 at the power of k
-					for (int j = 0; j < (int)Math.pow(B3, k); j++) {		// iterate through the top base y dimension of size B3 at the power of k
-						for (int a = 0; a < B3; a++) {						// iterate through the lower base of the relation on x direction 
-							for (int b = 0; b < B3; b++) {					// iterate through the lower base of the relation on y direction 
-								g.get(k+1).p[B3*i+a][B3*j+b].createRelationshipTo( g.get(k).p[i][j], Base.RelTypes.Z);
+				for (int i = 0; i < (int)Math.pow(B2, k); i++) {			// iterate through the top base x dimension of size B3 at the power of k
+					for (int j = 0; j < (int)Math.pow(B2, k); j++) {		// iterate through the top base y dimension of size B3 at the power of k
+						for (int a = 0; a < B2; a++) {						// iterate through the lower base of the relation on x direction 
+							for (int b = 0; b < B2; b++) {					// iterate through the lower base of the relation on y direction 
+								g.get(k+1).p[B2*i+a][B2*j+b].createRelationshipTo( g.get(k).p[i][j], Base.RelTypes.Z);
 								zRelCount++;	
 							}							
 						}
@@ -255,19 +256,32 @@ public class Pyramid {
 		Mat img_diff_gray=new Mat(); 
 		Mat img_diff_channels=new Mat(); 
 		Mat img_diff_color=new Mat(); 
-		List<Mat> img_pyr_color=new ArrayList<Mat>();	// List of Mats to hold pyramid images
-		for (int k = dimZ; k <= 0; k--) {				// Initialize pyramid image mats
-			img_pyr_color.add(new Mat());
-		}
 		
-		List<Mat> imgList = new ArrayList<Mat>();
+		ArrayList<Mat> img_pyr_color=new ArrayList<Mat>(dimZ);	// List of Mats to hold pyramid images based on img_diff_color
+//		for (int k = dimZ; k <= 0; k--) {				// Initialize pyramid image mats
+//			img_pyr_color.add(new Mat());
+//		}
+		
+		ArrayList<Mat> img_pyr_grey=new ArrayList<Mat>(dimZ);	// List of Mats to hold grey pyramid images based on img_diff
+//		for (int k = dimZ; k <= 0; k--) {				// Initialize pyramid image mats
+//			img_pyr_grey.add(new Mat());
+//		}
+		
+		
+		ArrayList<Mat> imgList = new ArrayList<Mat>();
 
 		Integer changedPixels = 0;					// to host nr of pixels with color values changed
 		Integer frameId = 0;
 		Integer sequenceId = 0;
 
 		Long timeMilli = 0L;
-
+		String timeRun = ""; 						// to store time of starting recording which will be used as a directory in pyrs files directory 
+		String pyrsFilesDir = "/pyrs/";
+		
+		timeMilli = Instant.now().toEpochMilli();
+		timeRun = timeMilli.toString();
+		pyrsFilesDir = pyrsFilesDir + timeRun + "/"; 
+		
 		VideoCapture webCam =new VideoCapture(1);   // set the webCam to use if more available
 		
 		if( webCam.isOpened())  
@@ -284,11 +298,13 @@ public class Pyramid {
 			{  
 				webCam.read(img);  
 				if( !img.empty() )  
-				{   
+				{ 
+					System.out.println("-- sequenceId = " + sequenceId + " frameId = " + frameId + " --");
+					
 					Imgproc.cvtColor(img, img_gray, Imgproc.COLOR_RGB2GRAY);
 					Imgproc.cvtColor(img_prev, img_prev_gray, Imgproc.COLOR_RGB2GRAY);	            	 
 					Core.absdiff(img_gray, img_prev_gray, img_diff_gray);
-					Imgproc.threshold(img_diff_gray, img_diff, threshold, 1, Imgproc.THRESH_BINARY);
+					Imgproc.threshold(img_diff_gray, img_diff, threshold, 1, Imgproc.THRESH_BINARY);	// place "grey" value 1 equivalent to grey 255
 
 					changedPixels = Core.countNonZero(img_diff);
 					System.out.println("Changed pixels: " + changedPixels);
@@ -301,12 +317,26 @@ public class Pyramid {
 					imgList.clear();
 
 					Core.multiply(img_diff_channels, img, img_diff_color);
+					// Core.multiply(img_diff, img_diff_gray, img_diff_grey);		// thresholded grey image - do we need this or should we work w just img_diff_gray
 
-					// Compute pyramid levels from bottom image to top
+					// Compute pyramid levels from bottom image to top for color difference images and grey images
 					// Initialize first level of the pyramid from the base level original image
-					Imgproc.pyrDown(img_diff_color, img_pyr_color.get(dimZ) , new Size((double)img_diff_color.cols()/3, (double)img_diff_color.rows()/3));
-					for (int k = dimZ ; k > 0; k--) {						
-						Imgproc.pyrDown(img_pyr_color.get(k), img_pyr_color.get(k-1) , new Size((double)img_diff_color.cols()/3, (double)img_diff_color.rows()/3));
+					
+					// Imgproc.pyrDown(img_diff_color, img_pyr_color.get(dimZ) , new Size((double)img_diff_color.cols(), (double)img_diff_color.rows()));
+					// Imgproc.pyrDown(img_diff, img_pyr_grey.get(dimZ) , new Size((double)img_diff.cols(), (double)img_diff.rows()));
+					
+					img_pyr_color.add(img_diff_color);
+					Highgui.imwrite(pyrsFilesDir + "img_pyr_color_S" + sequenceId + "_F" + frameId + "_L" + dimZ + ".jpg", img_pyr_color.get(0));
+					img_pyr_grey.add(img_diff_gray);
+					Highgui.imwrite(pyrsFilesDir + "img_pyr_grey_S" + sequenceId + "_F" + frameId + "_L" + dimZ + ".jpg", img_pyr_grey.get(0));
+					
+					for (int k = 0 ; k < dimZ; k++) {	
+						img_pyr_color.add(new Mat());
+						img_pyr_grey.add(new Mat());
+						Imgproc.pyrDown(img_pyr_color.get(k), img_pyr_color.get(k+1) , new Size((double)img_pyr_color.get(k).cols()/B2, (double)img_pyr_color.get(k).rows()/B2));
+						Imgproc.pyrDown(img_pyr_grey.get(k), img_pyr_grey.get(k+1) , new Size((double)img_pyr_grey.get(k).cols()/B2, (double)img_pyr_grey.get(k).rows()/B2));
+						Highgui.imwrite(pyrsFilesDir + "img_pyr_color_S" + sequenceId + "_F" + frameId + "_L" + (dimZ - (k+1)) + ".jpg", img_pyr_color.get(k+1));
+						Highgui.imwrite(pyrsFilesDir + "img_pyr_grey_S" + sequenceId + "_F" + frameId + "_L" + (dimZ - (k+1)) + ".jpg", img_pyr_grey.get(k+1));
 						}
 					
 					webCam.read(img_prev);
@@ -371,14 +401,14 @@ public class Pyramid {
 							// except the original base image which will capture first the original image (diff) values
 							// Draft: 
 							// for (int k = dimZ; k >= 0; k--)   // start from the base image 
-							for (int k = dimZ; k >= 0; k--) {
-								for (int i = 0; i < (dimX / Math.pow(B3,(dimZ - k))); i++) {			// original up to dimX but for pyramid must be up to edge dimension of the level in pyramid 
-									for (int j = 0; j < (dimY / Math.pow(B3, (dimY - k))); j++) {
-										if (img_diff.get(i, j)[0] > 0) {	// ToDo - change img_diff (grey?) into a grey image for pyramid level k
-											g.get(k).p[i][j].setProperty( "B", img_pyr_color.get(k).get(i, j)[0] );
-											g.get(k).p[i][j].setProperty( "G", img_pyr_color.get(k).get(i, j)[1] );
-											g.get(k).p[i][j].setProperty( "R", img_pyr_color.get(k).get(i, j)[2] );
-											// g.get(dimZ).p[i][j].setProperty( "grey", img_diff.get(i, j)[0] );
+							for (int k = dimZ; k >=0; k--) {
+								for (int i = 0; i < (dimX / Math.pow(B2,(dimZ - k))); i++) {			// original up to dimX but for pyramid must be up to edge dimension of the level in pyramid 
+									for (int j = 0; j < (dimY / Math.pow(B2, (dimY - k))); j++) {
+										if (img_pyr_grey.get(dimZ - k).get(i, j)[0] > 0) {	// Check the grey image/pixels for pyramid level k
+											g.get(k).p[i][j].setProperty( "B", img_pyr_color.get(dimZ - k).get(i, j)[0] );
+											g.get(k).p[i][j].setProperty( "G", img_pyr_color.get(dimZ - k).get(i, j)[1] );
+											g.get(k).p[i][j].setProperty( "R", img_pyr_color.get(dimZ - k).get(i, j)[2] );
+											g.get(k).p[i][j].setProperty( "grey", img_pyr_grey.get(dimZ - k).get(i, j)[0] );
 											g.get(k).p[i][j].setProperty( "f_" + frameId, frameId );
 											// Write X relations to the left and write of the pixel
 	//										if (i > 0 ) 
@@ -450,7 +480,9 @@ public class Pyramid {
 					break;   
 				} 
 				
+				// clear pyramid images before moving to the next frame
 				img_pyr_color.clear();
+				img_pyr_grey.clear();
 			}  
 		}
 		webCam.release(); //release the webcam	
