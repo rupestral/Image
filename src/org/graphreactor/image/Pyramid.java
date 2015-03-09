@@ -176,8 +176,9 @@ public class Pyramid {
 	// Initialize Pyramid Graph bases - the equivalent image bases - each base is a planar graph network like the one in image.java
 	public static ArrayList<Base> g = new ArrayList<>();
 	
-	private static final String DB_PATH = "../DBs/Pyramid";	
-	static GraphDatabaseService db = new GraphDatabaseFactory().newEmbeddedDatabase( DB_PATH );
+	private static final String DB_PATH = "../DBs/Pyramid/";	
+	private static final long startTime = Instant.now().toEpochMilli();
+	static GraphDatabaseService db = new GraphDatabaseFactory().newEmbeddedDatabase( DB_PATH + startTime);
 	
 	Label pixelLabel = DynamicLabel.label("Pixel");
 	Label frameLabel = DynamicLabel.label("Frame");
@@ -275,12 +276,10 @@ public class Pyramid {
 		Integer sequenceId = 0;
 
 		Long timeMilli = 0L;
-		String timeRun = ""; 						// to store time of starting recording which will be used as a directory in pyrs files directory 
-		String pyrsFilesDir = "/pyrs/";
+		String dirPyrsString = "pyrs/" + startTime; 						
 		
-		timeMilli = Instant.now().toEpochMilli();
-		timeRun = timeMilli.toString();
-		pyrsFilesDir = pyrsFilesDir + timeRun + "/"; 
+		File dir = new File (dirPyrsString); 	// time of starting recording which will be used as a directory in pyrs files directory 
+		dir.mkdirs();
 		
 		VideoCapture webCam =new VideoCapture(1);   // set the webCam to use if more available
 		
@@ -326,17 +325,17 @@ public class Pyramid {
 					// Imgproc.pyrDown(img_diff, img_pyr_grey.get(dimZ) , new Size((double)img_diff.cols(), (double)img_diff.rows()));
 					
 					img_pyr_color.add(img_diff_color);
-					Highgui.imwrite(pyrsFilesDir + "img_pyr_color_S" + sequenceId + "_F" + frameId + "_L" + dimZ + ".jpg", img_pyr_color.get(0));
+					Highgui.imwrite(dirPyrsString + "/img_pyr_color_S" + sequenceId + "_F" + frameId + "_L" + dimZ + ".jpg", img_pyr_color.get(0));
 					img_pyr_grey.add(img_diff_gray);
-					Highgui.imwrite(pyrsFilesDir + "img_pyr_grey_S" + sequenceId + "_F" + frameId + "_L" + dimZ + ".jpg", img_pyr_grey.get(0));
+					Highgui.imwrite(dirPyrsString + "/img_pyr_grey_S" + sequenceId + "_F" + frameId + "_L" + dimZ + ".jpg", img_pyr_grey.get(0));
 					
 					for (int k = 0 ; k < dimZ; k++) {	
 						img_pyr_color.add(new Mat());
 						img_pyr_grey.add(new Mat());
 						Imgproc.pyrDown(img_pyr_color.get(k), img_pyr_color.get(k+1) , new Size((double)img_pyr_color.get(k).cols()/B2, (double)img_pyr_color.get(k).rows()/B2));
 						Imgproc.pyrDown(img_pyr_grey.get(k), img_pyr_grey.get(k+1) , new Size((double)img_pyr_grey.get(k).cols()/B2, (double)img_pyr_grey.get(k).rows()/B2));
-						Highgui.imwrite(pyrsFilesDir + "img_pyr_color_S" + sequenceId + "_F" + frameId + "_L" + (dimZ - (k+1)) + ".jpg", img_pyr_color.get(k+1));
-						Highgui.imwrite(pyrsFilesDir + "img_pyr_grey_S" + sequenceId + "_F" + frameId + "_L" + (dimZ - (k+1)) + ".jpg", img_pyr_grey.get(k+1));
+						Highgui.imwrite(dirPyrsString + "/img_pyr_color_S" + sequenceId + "_F" + frameId + "_L" + (dimZ - (k+1)) + ".jpg", img_pyr_color.get(k+1));
+						Highgui.imwrite(dirPyrsString + "/img_pyr_grey_S" + sequenceId + "_F" + frameId + "_L" + (dimZ - (k+1)) + ".jpg", img_pyr_grey.get(k+1));
 						}
 					
 					webCam.read(img_prev);
